@@ -94,6 +94,12 @@ export class VolumeAction extends PluginAction {
 					ev.action.showAlert();
 				}
 				break;
+			case "up":
+				connection.changeVolumeUp(settings.zone) || ev.action.showAlert();
+				break;
+			case "down":
+				connection.changeVolumeDown(settings.zone) || ev.action.showAlert();
+				break;
 			case "toggleMute":
 				connection.setMute(undefined, settings.zone) || ev.action.showAlert();
 				break;
@@ -156,7 +162,9 @@ export class VolumeAction extends PluginAction {
  * @param {number} [zone] - The zone that the volume status changed for
  */
 async function updateActionState(action, connection, zone) {
-	const actionZone = (/** @type {ActionSettings} */ (await action.getSettings())).zone || 0;
+	/** @type {ActionSettings} */
+	const settings = await action.getSettings();
+	const actionZone = settings.zone || 0;
 	if (zone !== undefined && zone !== actionZone) { return; }
 
 	const { muted, volume, maxVolume, power } = connection !== undefined
@@ -181,7 +189,23 @@ async function updateActionState(action, connection, zone) {
 			icon: icon
 		});
 	} else if (action.isKey()) {
-		const state = power !== undefined ? muted || !power ? 1 : 0 : 1;
+		const volumeAction = settings.volumeAction || "toggleMute";
+
+		let state = 0;
+
+		switch(volumeAction) {
+			case "up":
+				state = 2;
+				break;
+			case "down":
+				state = 3;
+				break;
+			default:
+				if (power === undefined || !power || muted) {
+					state = 1;
+				}
+		}
+
 		action.setState(state);
 	}
 }

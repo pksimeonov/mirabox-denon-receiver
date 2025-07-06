@@ -30,6 +30,14 @@
 				{
 					"Name": "Mute",
 					"Image": "imgs/actions/volume/volumeMute"
+				},
+				{
+					"Name": "VolumeUp",
+					"Image": "imgs/actions/volume/volumeUp"
+				},
+				{
+					"Name": "VolumeDown",
+					"Image": "imgs/actions/volume/volumeDown"
 				}
 			]
 		},
@@ -125,7 +133,8 @@
 		}
 	],
 	"Nodejs": {
-		"Version": "20"
+		"Version": "20",
+		"Debug": "enabled"
 	},
 	"UUID": "com.mthiel.denon-controller"
 }
