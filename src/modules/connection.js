@@ -290,6 +290,40 @@ export class AVRConnection {
 		return true;
 	}
 
+	changeVolumeUp(zone = 0) {
+		const telnet = this.#telnet;
+		const status = this.status.zones[zone];
+
+		if (!telnet || !status.power) return false;
+
+		try {
+			let command = ["MV", "Z2"][zone]+"UP";
+
+			telnet.write(command + "\r");
+			this.logger.debug(`Sent volume command: ${command}`);
+		} catch (error) {
+			this.logger.error(`Error sending volume command: ${error.message}`);
+			return false;
+		}
+	}
+
+	changeVolumeDown(zone = 0) {
+		const telnet = this.#telnet;
+		const status = this.status.zones[zone];
+
+		if (!telnet || !status.power) return false;
+
+		try {
+			let command = ["MV", "Z2"][zone]+"DOWN";
+
+			telnet.write(command + "\r");
+			this.logger.debug(`Sent volume command: ${command}`);
+		} catch (error) {
+			this.logger.error(`Error sending volume command: ${error.message}`);
+			return false;
+		}
+	}
+
 	/**
 	 * Set the mute state
 	 * @param {boolean} [value] - The new mute state to set
