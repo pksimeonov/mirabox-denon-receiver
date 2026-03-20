@@ -1,6 +1,6 @@
 # Denon Receiver Control for Mirabox Stream Controllers
 
-This is a fork of [mthiel/stream-deck-denon-receiver](https://github.com/mthiel/stream-deck-denon-receiver) with added support for Mirabox stream controllers. Tested with the Mirabox N3 on Windows 11.
+This is a fork of [mthiel/stream-deck-denon-receiver](https://github.com/mthiel/stream-deck-denon-receiver) with added support for Mirabox stream controllers (also branded as Ajazz, Soomfon, and a few others). Tested with a SOOMFON Stream Controller SE (Mirabox N3) on Windows 11.
 
 **What's different from the original:**
 - Mirabox "Knob" controller support (the Mirabox uses a different controller type than Stream Deck, patched at build time).
