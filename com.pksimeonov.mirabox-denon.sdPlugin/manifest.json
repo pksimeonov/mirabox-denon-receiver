@@ -1,6 +1,6 @@
 {
 	"Name": "Receiver Control (Mirabox)",
-	"Version": "0.8.0.0",
+	"Version": "1.0.0.0",
 	"Author": "pksimeonov (fork of Matthew Thiel's stream-deck-denon-receiver)",
 	"Actions": [
 		{

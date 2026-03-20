@@ -1,6 +1,6 @@
 {
     "name": "com.pksimeonov.mirabox-denon",
-    "version": "0.8.0.0",
+    "version": "1.0.0",
     "description": "Mirabox fork of stream-deck-denon-receiver. Uses the network interface on many Denon/Marantz receivers to control basic functions. Requires a model with HEOS support for network control.",
     "author": "pksimeonov",
     "homepage": "https://github.com/pksimeonov/mirabox-denon-receiver",
