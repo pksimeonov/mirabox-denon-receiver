@@ -26,19 +26,27 @@
 			"States": [
 				{
 					"Name": "Unmute",
-					"Image": "imgs/actions/volume/volume2"
+					"Image": "imgs/actions/volume/volume2",
+					"TitleAlignment": "bottom",
+					"FontSize": "10"
 				},
 				{
 					"Name": "Mute",
-					"Image": "imgs/actions/volume/volumeMute"
+					"Image": "imgs/actions/volume/volumeMute",
+					"TitleAlignment": "bottom",
+					"FontSize": "10"
 				},
 				{
 					"Name": "VolumeUp",
-					"Image": "imgs/actions/volume/volumeUp"
+					"Image": "imgs/actions/volume/volumeUp",
+					"TitleAlignment": "bottom",
+					"FontSize": "10"
 				},
 				{
 					"Name": "VolumeDown",
-					"Image": "imgs/actions/volume/volumeDown"
+					"Image": "imgs/actions/volume/volumeDown",
+					"TitleAlignment": "bottom",
+					"FontSize": "10"
 				}
 			]
 		},
@@ -136,7 +144,9 @@
 			"States": [
 				{
 					"Name": "SubLevel",
-					"Image": "imgs/actions/sublevel/sublevel"
+					"Image": "imgs/actions/sublevel/sublevel",
+					"TitleAlignment": "bottom",
+					"FontSize": "10"
 				}
 			]
 		}

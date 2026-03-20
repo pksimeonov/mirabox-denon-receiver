@@ -111,9 +111,9 @@ export class SubLevelAction extends PluginAction {
 function formatLevel(dbOffset, power) {
 	if (power === undefined) return "";
 	if (!power) return "Off";
-	if (dbOffset === undefined) return "Sub\n--";
+	if (dbOffset === undefined) return "--";
 	const sign = dbOffset >= 0 ? "+" : "";
-	return `Sub\n${sign}${dbOffset}dB`;
+	return `${sign}${dbOffset}dB`;
 }
 
 /**

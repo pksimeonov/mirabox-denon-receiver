@@ -210,7 +210,7 @@ async function updateActionState(action, connection, zone) {
 
 		// Show the current volume on the button display
 		const title = power !== undefined
-			? !power ? "Off" : muted ? "Muted" : `Vol\n${volume}`
+			? !power ? "Off" : muted ? "Muted" : `${volume}`
 			: "";
 		action.setTitle(title);
 	}
