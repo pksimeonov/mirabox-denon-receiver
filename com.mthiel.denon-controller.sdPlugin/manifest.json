@@ -11,7 +11,8 @@
 			"PropertyInspectorPath": "ui/action.html",
 			"Controllers": [
 				"Keypad",
-				"Encoder"
+				"Encoder",
+				"Knob"
 			],
 			"DisableAutomaticStates": true,
 			"Encoder": {
