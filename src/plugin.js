@@ -1,3 +1,4 @@
+import "./mirabox-compat";
 import streamDeck, { LogLevel } from "@elgato/streamdeck";
 /** @typedef {import("@elgato/streamdeck").Logger} Logger */
 /** @typedef {import("@elgato/streamdeck").SystemDidWakeUpEvent} SystemDidWakeUpEvent */
