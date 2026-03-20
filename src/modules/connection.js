@@ -20,6 +20,7 @@ import { TelnetSocket } from "telnet-stream";
  * 			 | "status"
  * 			 | "sourceChanged"
  * 			 | "dynamicVolumeChanged"
+ * 			 | "dynamicEQChanged"
  * 			 | "channelLevelChanged"} type - The type of event.
  * @property {number} [zone] - The zone that the event occurred on.
  * @property {AVRConnection} connection - The receiver connection.
@@ -36,6 +37,7 @@ import { TelnetSocket } from "telnet-stream";
  * @property {number} volume - The current volume of the zone.
  * @property {number} maxVolume - The (current) maximum volume of the receiver.
  * @property {DynamicVolume} [dynamicVolume] - Whether the volume is dynamic.
+ * @property {boolean} [dynamicEQ] - Whether Dynamic EQ is enabled.
  * @property {boolean} muted - Whether the zone is muted.
  * @property {string} source - The current source of the zone.
  * @property {Record<string, number>} [channelLevels] - Channel level offsets (Options → Channel Level). Key is channel code (e.g. "SW"), value is dB offset.
@@ -104,6 +106,7 @@ export class AVRConnection {
 				maxVolume: 85,
 				muted: false,
 				dynamicVolume: "OFF",
+				dynamicEQ: false,
 				source: "",
 				channelLevels: {},
 			},
@@ -246,16 +249,14 @@ export class AVRConnection {
 		try {
 			let command = ["MV", "Z2"][zone];
 
-			if (delta === 1) {
-				command += "UP";
-			} else if (delta === -1) {
-				command += "DOWN";
-			} else {
-				let newVolumeStr = Math.max(0, Math.min(status.maxVolume, Math.round(status.volume + delta)))
-					.toString()
-					.padStart(2, "0");
-				command += newVolumeStr;
-			}
+			let newVolume = Math.max(0, Math.min(status.maxVolume, status.volume + delta));
+			// Round to nearest 0.5
+			newVolume = Math.round(newVolume * 2) / 2;
+			// Format: whole numbers as "XX", half steps as "XXX" (e.g. 45.5 → "455")
+			let newVolumeStr = Number.isInteger(newVolume)
+				? newVolume.toString().padStart(2, "0")
+				: (newVolume * 10).toString().padStart(3, "0");
+			command += newVolumeStr;
 
 			telnet.write(command + "\r");
 			this.logger.debug(`Sent volume command: ${command}`);
@@ -434,6 +435,24 @@ export class AVRConnection {
 	}
 
 	/**
+	 * Set the Dynamic EQ state
+	 * @param {boolean} [value] - The new state. If not provided, toggles.
+	 * @returns {boolean} Whether the command was sent successfully
+	 */
+	setDynamicEQ(value) {
+		const telnet = this.#telnet;
+		if (!telnet) return false;
+
+		if (value === undefined) value = !this.status.zones[0].dynamicEQ;
+
+		const command = `PSDYNEQ ${value ? "ON" : "OFF"}`;
+		telnet.write(command + "\r");
+		this.logger.debug(`Sent dynamic EQ command: ${command}`);
+
+		return true;
+	}
+
+	/**
 	 * Change a channel level by the given delta (Options → Channel Level).
 	 * This adjusts the runtime offset and does not affect MultEQ calibration.
 	 * @param {string} channel - The channel code (e.g. "SW" for subwoofer)
@@ -449,15 +468,15 @@ export class AVRConnection {
 		try {
 			let command = `CV${channel}`;
 
-			if (delta === 1) {
-				command += " UP";
-			} else if (delta === -1) {
-				command += " DOWN";
-			} else {
-				const currentLevel = status.channelLevels?.[channel] ?? 50;
-				const newLevel = Math.max(38, Math.min(62, Math.round(currentLevel + delta)));
-				command += ` ${newLevel.toString().padStart(2, "0")}`;
-			}
+			const currentLevel = status.channelLevels?.[channel] ?? 50;
+			let newLevel = Math.max(38, Math.min(62, currentLevel + delta));
+			// Round to nearest 0.5
+			newLevel = Math.round(newLevel * 2) / 2;
+			// Format: whole numbers as "XX", half steps as "XXX" (e.g. 50.5 → "505")
+			const newLevelStr = Number.isInteger(newLevel)
+				? newLevel.toString().padStart(2, "0")
+				: (newLevel * 10).toString().padStart(3, "0");
+			command += ` ${newLevelStr}`;
 
 			telnet.write(command + "\r");
 			this.logger.debug(`Sent channel level command: ${command}`);
@@ -627,6 +646,9 @@ export class AVRConnection {
 				case "DYNVOL": // Dynamic volume
 					this.#onDynamicVolumeChanged(parameter);
 					break;
+				case "DYNEQ": // Dynamic EQ
+					this.#onDynamicEQChanged(parameter);
+					break;
 				default:
 					this.logger.warn(`Unhandled message from receiver at ${this.#host} Z${zone === 0 ? "M" : "2"}: ${line}`);
 					break;
@@ -742,6 +764,22 @@ export class AVRConnection {
 	}
 
 	/**
+	 * Handle a Dynamic EQ changed message from the receiver
+	 * @param {string} parameter - The parameter from the receiver ("ON" or "OFF")
+	 */
+	#onDynamicEQChanged(parameter) {
+		if (!["ON", "OFF"].includes(parameter)) {
+			this.logger.warn(`Invalid dynamic EQ value received from receiver at ${this.#host}: ${parameter}`);
+			return;
+		}
+
+		this.status.zones[0].dynamicEQ = parameter === "ON";
+		this.logger.debug(`Updated receiver dynamic EQ status for ${this.#host}: ${this.status.zones[0].dynamicEQ}`);
+
+		this.emit("dynamicEQChanged");
+	}
+
+	/**
 	 * Handle a channel level changed message from the receiver.
 	 * Response format: "CVXX yy" where XX is the channel code and yy is the raw value (38-62, 50=0dB).
 	 * Three-digit values represent 0.5dB steps (e.g. 505 = +0.5dB).
@@ -812,6 +850,7 @@ export class AVRConnection {
 		telnet.write("MU?\r"); // Request the mute status
 		telnet.write("CV?\r"); // Request the channel levels
 		telnet.write("PSDYNVOL ?\r"); // Request the dynamic volume status
+		telnet.write("PSDYNEQ ?\r"); // Request the dynamic EQ status
 
 		// Zone 2
 		telnet.write("Z2PW?\r"); // Request the power status

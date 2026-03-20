@@ -49,6 +49,14 @@ async function updateLayoutForAction() {
                     handleVolumeUIChange(volumeActionSelect);
                 }
             }
+            if (controller === "Encoder" || controller === "Knob") {
+                document.querySelector('.action-section.stepsize')?.classList.remove('hidden');
+            }
+            break;
+        case "sublevel":
+            if (controller === "Encoder" || controller === "Knob") {
+                document.querySelector('.action-section.stepsize')?.classList.remove('hidden');
+            }
             break;
         case "source":
             if (controller === "Keypad") {
@@ -56,6 +64,7 @@ async function updateLayoutForAction() {
             }
             break;
         case "dynvol":
+        case "dyneq":
             document.querySelector('.separator')?.classList.add('hidden');
             document.querySelector('.zone-item')?.classList.add('hidden');
             break;

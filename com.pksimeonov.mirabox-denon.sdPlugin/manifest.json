@@ -149,6 +149,31 @@
 					"FontSize": "10"
 				}
 			]
+		},
+		{
+			"Name": "Dynamic EQ Control",
+			"UUID": "com.pksimeonov.mirabox-denon.dyneq",
+			"Icon": "imgs/actions/dyneq/dyneq-on",
+			"Tooltip": "Toggles Dynamic EQ on or off.",
+			"PropertyInspectorPath": "ui/action.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"DisableAutomaticStates": true,
+			"States": [
+				{
+					"Name": "DynEQ",
+					"Image": "imgs/actions/dyneq/dyneq-on"
+				},
+				{
+					"Name": "On",
+					"Image": "imgs/actions/dyneq/dyneq-on"
+				},
+				{
+					"Name": "Off",
+					"Image": "imgs/actions/dyneq/dyneq-off"
+				}
+			]
 		}
 	],
 	"Category": "Receiver Control",

@@ -43,7 +43,12 @@ export class SubLevelAction extends PluginAction {
 	 * @param {DialRotateEvent} ev - The event object.
 	 */
 	onDialRotate(ev) {
-		this.avrConnections[this.actionReceiverMap[ev.action.id].uuid]?.changeChannelLevel(CHANNEL, ev.payload.ticks) || ev.action.showAlert();
+		/** @type {ActionSettings} */
+		const settings = ev.payload.settings;
+		const stepSize = settings.stepSize || 0.5;
+		const delta = ev.payload.ticks > 0 ? stepSize : -stepSize;
+
+		this.avrConnections[this.actionReceiverMap[ev.action.id].uuid]?.changeChannelLevel(CHANNEL, delta) || ev.action.showAlert();
 	}
 
 	/**

@@ -13,6 +13,7 @@ import { PowerAction } from "./actions/power";
 import { SourceAction } from "./actions/source";
 import { DynVolAction } from "./actions/dynVol";
 import { SubLevelAction } from "./actions/subLevel";
+import { DynEQAction } from "./actions/dynEQ";
 
 
 /** @typedef {import("./modules/connection").AVRConnection} AVRConnection */
@@ -37,6 +38,7 @@ streamDeck.actions.registerAction(new PowerAction(plugin));
 streamDeck.actions.registerAction(new SourceAction(plugin));
 streamDeck.actions.registerAction(new DynVolAction(plugin));
 streamDeck.actions.registerAction(new SubLevelAction(plugin));
+streamDeck.actions.registerAction(new DynEQAction(plugin));
 
 // Connect to the StreamDeck and kick-off the rest of the initialization
 await streamDeck.connect();

@@ -43,8 +43,10 @@ export class VolumeAction extends PluginAction {
 	onDialRotate(ev) {
 		/** @type {ActionSettings} */
 		const settings = ev.payload.settings;
+		const stepSize = settings.stepSize || 0.5;
+		const delta = ev.payload.ticks > 0 ? stepSize : -stepSize;
 
-		this.avrConnections[this.actionReceiverMap[ev.action.id].uuid]?.changeVolume(ev.payload.ticks, settings.zone) || ev.action.showAlert();
+		this.avrConnections[this.actionReceiverMap[ev.action.id].uuid]?.changeVolume(delta, settings.zone) || ev.action.showAlert();
 	}
 
 	/**

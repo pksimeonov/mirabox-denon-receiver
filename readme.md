@@ -6,6 +6,8 @@ This is a fork of [mthiel/stream-deck-denon-receiver](https://github.com/mthiel/
 - Mirabox "Knob" controller support (the Mirabox uses a different controller type than Stream Deck, patched at build time).
 - **Subwoofer Level** action - adjusts the subwoofer channel level via Options > Channel Level (a runtime offset that does not affect MultEQ calibration).
 - Volume and subwoofer level values are shown as text on display buttons, since the N3 knobs don't have built-in displays.
+- Configurable knob step size for volume and subwoofer level (0.5, 1, 1.5, 2, 2.5, or 5 dB per tick).
+- **Dynamic EQ** on/off toggle action.
 - Icons resized to 64x64 to match the N3 LCD button resolution (fixes blurry icons from the original 20x20 SVGs).
 
 **Building from source:**

@@ -1,0 +1,6 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<text x="32" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#888888">Dyn</text>
+<text x="32" y="50" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#888888">EQ</text>
+<line x1="12" y1="12" x2="52" y2="52" stroke="white" stroke-width="1" stroke-linecap="round"/>
+<line x1="52" y1="12" x2="12" y2="52" stroke="white" stroke-width="1" stroke-linecap="round"/>
+</svg>

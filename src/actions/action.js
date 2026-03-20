@@ -35,6 +35,7 @@ import { AVRTracker } from "../modules/tracker";
  * @property {string} [powerAction] - The power action to perform on the receiver
  * @property {string} [sourceAction] - The source action to perform on the receiver
  * @property {string} [source] - The source to set on the receiver
+ * @property {number} [stepSize] - The step size for knob/dial adjustments (in dB)
  */
 
 /**
@@ -286,6 +287,9 @@ export class PluginAction extends SingletonAction {
 			case "dynamicVolumeChanged":
 				this.onReceiverDynamicVolumeChanged(ev);
 				break;
+			case "dynamicEQChanged":
+				this.onReceiverDynamicEQChanged(ev);
+				break;
 			case "channelLevelChanged":
 				this.onReceiverChannelLevelChanged(ev);
 				break;
@@ -381,4 +385,10 @@ export class PluginAction extends SingletonAction {
 	 * @param {ReceiverEvent} ev - The event object.
 	 */
 	onReceiverChannelLevelChanged(ev) {}
+
+	/**
+	 * Fires when the receiver's Dynamic EQ state changes.
+	 * @param {ReceiverEvent} ev - The event object.
+	 */
+	onReceiverDynamicEQChanged(ev) {}
 }
