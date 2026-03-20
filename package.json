@@ -1,13 +1,14 @@
 {
-    "name": "com.mthiel.streamdeck.denon-controller",
-    "version": "0.7.4.0",
-    "description": "Uses the network interface on many Denon/Marantz receivers to control basic functions. Requires a model with HEOS support for network control.",
-    "author": "Matthew Thiel",
-    "homepage": "https://github.com/mthiel/stream-deck-denon-receiver",
+    "name": "com.pksimeonov.mirabox-denon",
+    "version": "0.8.0.0",
+    "description": "Mirabox fork of stream-deck-denon-receiver. Uses the network interface on many Denon/Marantz receivers to control basic functions. Requires a model with HEOS support for network control.",
+    "author": "pksimeonov",
+    "homepage": "https://github.com/pksimeonov/mirabox-denon-receiver",
     "scripts": {
         "build": "rollup -c",
-        "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.mthiel.denon-controller\"",
-        "pack": "streamdeck pack --no-update-check com.mthiel.denon-controller.sdPlugin"
+        "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.pksimeonov.mirabox-denon\"",
+        "pack": "streamdeck pack --no-update-check com.pksimeonov.mirabox-denon.sdPlugin",
+        "pack:mirabox": "node scripts/pack-mirabox.js"
     },
     "type": "module",
     "devDependencies": {

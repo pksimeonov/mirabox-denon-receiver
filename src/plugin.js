@@ -1,4 +1,3 @@
-import "./mirabox-compat";
 import streamDeck, { LogLevel } from "@elgato/streamdeck";
 /** @typedef {import("@elgato/streamdeck").Logger} Logger */
 /** @typedef {import("@elgato/streamdeck").SystemDidWakeUpEvent} SystemDidWakeUpEvent */
@@ -13,6 +12,7 @@ import { VolumeAction } from "./actions/volume";
 import { PowerAction } from "./actions/power";
 import { SourceAction } from "./actions/source";
 import { DynVolAction } from "./actions/dynVol";
+import { SubLevelAction } from "./actions/subLevel";
 
 
 /** @typedef {import("./modules/connection").AVRConnection} AVRConnection */
@@ -36,6 +36,7 @@ streamDeck.actions.registerAction(new VolumeAction(plugin));
 streamDeck.actions.registerAction(new PowerAction(plugin));
 streamDeck.actions.registerAction(new SourceAction(plugin));
 streamDeck.actions.registerAction(new DynVolAction(plugin));
+streamDeck.actions.registerAction(new SubLevelAction(plugin));
 
 // Connect to the StreamDeck and kick-off the rest of the initialization
 await streamDeck.connect();

@@ -7,3 +7,5 @@ sdpi-components.js
 # Stream Deck files
 *.sdPlugin/bin
 *.sdPlugin/logs
+release/
+.claude/

@@ -13,7 +13,7 @@ import { PluginAction } from "./action";
  * The Power action class.
  * @extends {PluginAction}
  */
-@action({ UUID: "com.mthiel.denon-controller.power" })
+@action({ UUID: "com.pksimeonov.mirabox-denon.power" })
 export class PowerAction extends PluginAction {
 	/**
 	 * Handle the action appearing on the Stream Deck.

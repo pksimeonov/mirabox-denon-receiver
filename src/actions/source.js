@@ -14,7 +14,7 @@ import { AVRConnection } from "../modules/connection";
  * The Source action class.
  * @extends {PluginAction}
  */
-@action({ UUID: "com.mthiel.denon-controller.source" })
+@action({ UUID: "com.pksimeonov.mirabox-denon.source" })
 export class SourceAction extends PluginAction {
 	/**
 	 * Change to the configured source when the key is pressed

@@ -12,14 +12,15 @@ import { TelnetSocket } from "telnet-stream";
 
 /**
  * @typedef {Object} ReceiverEvent
- * @property { "connected" 
+ * @property { "connected"
  * 			 | "closed"
  * 			 | "powerChanged"
  * 			 | "volumeChanged"
  * 			 | "muteChanged"
  * 			 | "status"
  * 			 | "sourceChanged"
- * 			 | "dynamicVolumeChanged"} type - The type of event.
+ * 			 | "dynamicVolumeChanged"
+ * 			 | "channelLevelChanged"} type - The type of event.
  * @property {number} [zone] - The zone that the event occurred on.
  * @property {AVRConnection} connection - The receiver connection.
  * @property {Action[]} [actions] - The actions to inform of the event.
@@ -37,6 +38,7 @@ import { TelnetSocket } from "telnet-stream";
  * @property {DynamicVolume} [dynamicVolume] - Whether the volume is dynamic.
  * @property {boolean} muted - Whether the zone is muted.
  * @property {string} source - The current source of the zone.
+ * @property {Record<string, number>} [channelLevels] - Channel level offsets (Options → Channel Level). Key is channel code (e.g. "SW"), value is dB offset.
  */
 
 /**
@@ -103,6 +105,7 @@ export class AVRConnection {
 				muted: false,
 				dynamicVolume: "OFF",
 				source: "",
+				channelLevels: {},
 			},
 			{
 				power: false,
@@ -430,6 +433,68 @@ export class AVRConnection {
 		return true;
 	}
 
+	/**
+	 * Change a channel level by the given delta (Options → Channel Level).
+	 * This adjusts the runtime offset and does not affect MultEQ calibration.
+	 * @param {string} channel - The channel code (e.g. "SW" for subwoofer)
+	 * @param {number} delta - The amount to change the level by (in dB steps)
+	 * @returns {boolean} Whether the command was sent successfully
+	 */
+	changeChannelLevel(channel, delta) {
+		const telnet = this.#telnet;
+		const status = this.status.zones[0];
+
+		if (!telnet || !status.power) return false;
+
+		try {
+			let command = `CV${channel}`;
+
+			if (delta === 1) {
+				command += " UP";
+			} else if (delta === -1) {
+				command += " DOWN";
+			} else {
+				const currentLevel = status.channelLevels?.[channel] ?? 50;
+				const newLevel = Math.max(38, Math.min(62, Math.round(currentLevel + delta)));
+				command += ` ${newLevel.toString().padStart(2, "0")}`;
+			}
+
+			telnet.write(command + "\r");
+			this.logger.debug(`Sent channel level command: ${command}`);
+		} catch (error) {
+			this.logger.error(`Error sending channel level command: ${error.message}`);
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Set a channel level to a specific value (Options → Channel Level).
+	 * @param {string} channel - The channel code (e.g. "SW" for subwoofer)
+	 * @param {number} value - The raw level value (38-62, where 50 = 0dB)
+	 * @returns {boolean} Whether the command was sent successfully
+	 */
+	setChannelLevel(channel, value) {
+		const telnet = this.#telnet;
+		const status = this.status.zones[0];
+
+		if (!telnet || !status.power) return false;
+
+		try {
+			const clamped = Math.max(38, Math.min(62, value));
+			const command = `CV${channel} ${clamped.toString().padStart(2, "0")}`;
+
+			telnet.write(command + "\r");
+			this.logger.debug(`Sent channel level command: ${command}`);
+		} catch (error) {
+			this.logger.error(`Error sending channel level command: ${error.message}`);
+			return false;
+		}
+
+		return true;
+	}
+
 	/** @typedef {(...args: any[]) => void} EventListener */
 
 	/**
@@ -556,6 +621,9 @@ export class AVRConnection {
 				case "SI": // Source
 					this.#onSourceChanged(parameter, zone);
 					break;
+				case "CV": // Channel level (Options → Channel Level)
+					this.#onChannelLevelChanged(parameter);
+					break;
 				case "DYNVOL": // Dynamic volume
 					this.#onDynamicVolumeChanged(parameter);
 					break;
@@ -674,6 +742,44 @@ export class AVRConnection {
 	}
 
 	/**
+	 * Handle a channel level changed message from the receiver.
+	 * Response format: "CVXX yy" where XX is the channel code and yy is the raw value (38-62, 50=0dB).
+	 * Three-digit values represent 0.5dB steps (e.g. 505 = +0.5dB).
+	 * @param {string} parameter - The parameter from the receiver (e.g. "SW 50", "FL 505")
+	 */
+	#onChannelLevelChanged(parameter) {
+		const status = this.status.zones[0];
+
+		// CV responses come as "CVXX yy" — after removing the "CV" prefix in #onData,
+		// parameter is like "SW 50" or "FL 505" or "END" (end of channel level dump)
+		if (parameter === "END") return;
+
+		// Find the split between channel name and value
+		// Channel names: FL, FR, C, SW, SL, SR, SBL, SBR, FHL, FHR, FWL, FWR, etc.
+		const spaceIdx = parameter.indexOf(" ");
+		if (spaceIdx === -1) return;
+
+		const channel = parameter.substring(0, spaceIdx);
+		const valueStr = parameter.substring(spaceIdx + 1);
+		let value = parseInt(valueStr);
+
+		if (isNaN(value)) return;
+
+		// Three-digit values represent 0.5dB steps
+		if (valueStr.length === 3) {
+			value = value / 10;
+		}
+
+		status.channelLevels[channel] = value;
+
+		const dbOffset = value - 50;
+		const dbStr = dbOffset >= 0 ? `+${dbOffset}` : `${dbOffset}`;
+		this.logger.debug(`Updated channel level for ${this.#host} ${channel}: ${dbStr}dB (raw: ${value})`);
+
+		this.emit("channelLevelChanged");
+	}
+
+	/**
 	 * Handle socket errors
 	 * @param {Object} error
 	 */
@@ -704,6 +810,7 @@ export class AVRConnection {
 		telnet.write("PW?\r"); // Request the power status
 		telnet.write("MV?\r"); // Request the volume
 		telnet.write("MU?\r"); // Request the mute status
+		telnet.write("CV?\r"); // Request the channel levels
 		telnet.write("PSDYNVOL ?\r"); // Request the dynamic volume status
 
 		// Zone 2

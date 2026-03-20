@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+	<title>Denon Controller Settings</title>
+	<meta charset="utf-8" />
+	<link rel="stylesheet" href="action.css">
+	<script src="https://sdpi-components.dev/releases/v3/sdpi-components.js"></script>
+	<!-- <script src="sdpi-components.js"></script> -->
+	<script src="action.js"></script>
+</head>
+
+<body>
+	<sdpi-item label="Receiver">
+		<sdpi-select setting="uuid" label-setting="name" datasource="refreshReceiverList"
+			loading="Searching for receivers..." show-refresh="true" oninput="handleUserChoseReceiver(this)">
+		</sdpi-select>
+	</sdpi-item>
+	<sdpi-item label="Status">
+		<sdpi-textfield id="statusMsg" setting="statusMsg" disabled></sdpi-textfield>
+	</sdpi-item>
+
+	<hr class="separator" />
+
+	<sdpi-item label="Zone" class="zone-item">
+		<sdpi-select setting="zone" label="Zone" default=0 value-type="number">
+			<option value=0>Main</option>
+			<option value=1>Zone 2</option>
+		</sdpi-select>
+	</sdpi-item>
+
+	<div class="action-section volume hidden">
+		<sdpi-item label="Action">
+			<sdpi-select setting="volumeAction" label="Volume" default="toggleMute" oninput="handleVolumeUIChange(this)">
+				<option value="set">Set Volume</option>
+				<option value="up">Volume Up</option>
+				<option value="down">Volume Down</option>
+				<option value="toggleMute">Toggle Mute</option>
+				<option value="mute">Mute</option>
+				<option value="unmute">Unmute</option>
+			</sdpi-select>
+		</sdpi-item>
+		<sdpi-item label="Volume level" id="volumeLevelItem">
+			<sdpi-textfield setting="volumeLevel" placeholder="0 .. 85" value-type="number" required></sdpi-textfield>
+		</sdpi-item>
+	</div>
+
+	<div class="action-section power hidden">
+		<sdpi-item label="Action">
+			<sdpi-select setting="powerAction" label="Power">
+				<option value="toggle">Toggle</option>
+				<option value="on">Turn On</option>
+				<option value="off">Turn Off</option>
+			</sdpi-select>
+		</sdpi-item>
+	</div>
+
+	<div class="action-section source hidden">
+		<sdpi-item label="Action">
+			<sdpi-select setting="sourceAction" label="Source" default="set">
+				<option value="set">Set Source</option>
+				<option value="vs">Set Video Select Source</option>
+			</sdpi-select>
+		</sdpi-item>
+		<sdpi-item label="Source">
+			<sdpi-select setting="source" label="Source" datasource="refreshSourceList" loading="Loading sources...">
+			</sdpi-select>
+		</sdpi-item>
+	</div>
+</body>
+
+</html>

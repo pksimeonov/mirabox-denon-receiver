@@ -286,6 +286,9 @@ export class PluginAction extends SingletonAction {
 			case "dynamicVolumeChanged":
 				this.onReceiverDynamicVolumeChanged(ev);
 				break;
+			case "channelLevelChanged":
+				this.onReceiverChannelLevelChanged(ev);
+				break;
 			case "status":
 				this.onReceiverStatusChange(ev);
 				break;
@@ -372,4 +375,10 @@ export class PluginAction extends SingletonAction {
 	 * @param {ReceiverEvent} ev - The event object.
 	 */
 	onReceiverMuteChanged(ev) {}
+
+	/**
+	 * Fires when a channel level changes (Options → Channel Level).
+	 * @param {ReceiverEvent} ev - The event object.
+	 */
+	onReceiverChannelLevelChanged(ev) {}
 }

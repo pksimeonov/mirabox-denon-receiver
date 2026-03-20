@@ -3,11 +3,12 @@ import commonjs from "@rollup/plugin-commonjs";
 import json from "@rollup/plugin-json";
 import terser from "@rollup/plugin-terser";
 import babel from "@rollup/plugin-babel";
+import miraboxCompat from "./src/mirabox-compat.js";
 import path from "node:path";
 import url from "node:url";
 
 const isWatching = !!process.env.ROLLUP_WATCH;
-const sdPlugin = "com.mthiel.denon-controller.sdPlugin";
+const sdPlugin = "com.pksimeonov.mirabox-denon.sdPlugin";
 
 /**
  * @type {import('rollup').RollupOptions}
@@ -28,6 +29,7 @@ const config = {
 				this.addWatchFile(`${sdPlugin}/manifest.json`);
 			},
 		},
+		miraboxCompat(),
 		nodeResolve({
 			browser: false,
 			exportConditions: ["node"],

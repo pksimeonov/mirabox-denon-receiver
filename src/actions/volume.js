@@ -22,7 +22,7 @@ const images = {
  * The Volume action class.
  * @extends {PluginAction}
  */
-@action({ UUID: "com.mthiel.denon-controller.volume" })
+@action({ UUID: "com.pksimeonov.mirabox-denon.volume" })
 export class VolumeAction extends PluginAction {
 	/**
 	 * Handle the will appear event.
@@ -207,5 +207,11 @@ async function updateActionState(action, connection, zone) {
 		}
 
 		action.setState(state);
+
+		// Show the current volume on the button display
+		const title = power !== undefined
+			? !power ? "Off" : muted ? "Muted" : `Vol\n${volume}`
+			: "";
+		action.setTitle(title);
 	}
 }

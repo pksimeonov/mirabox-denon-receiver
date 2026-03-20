@@ -18,7 +18,7 @@ const dynVolStates = {
 	HEV: 4
 };
 
-@action({ UUID: "com.mthiel.denon-controller.dynvol" })
+@action({ UUID: "com.pksimeonov.mirabox-denon.dynvol" })
 export class DynVolAction extends PluginAction {
 	/**
 	 * Handle the action appearing on the Stream Deck.

@@ -1,4 +1,32 @@
-# Denon Receiver Control for Stream Deck
+# Denon Receiver Control for Mirabox Stream Controllers
+
+This is a fork of [mthiel/stream-deck-denon-receiver](https://github.com/mthiel/stream-deck-denon-receiver) with added support for Mirabox stream controllers. Tested with the Mirabox N3 on Windows 11.
+
+**What's different from the original:**
+- Mirabox "Knob" controller support (the Mirabox uses a different controller type than Stream Deck, patched at build time).
+- **Subwoofer Level** action - adjusts the subwoofer channel level via Options > Channel Level (a runtime offset that does not affect MultEQ calibration).
+- Volume and subwoofer level values are shown as text on display buttons, since the N3 knobs don't have built-in displays.
+- Icons resized to 64x64 to match the N3 LCD button resolution (fixes blurry icons from the original 20x20 SVGs).
+
+**Building from source:**
+
+Requires Node.js 20.
+
+```
+npm install
+npm run build
+npm run pack:mirabox
+```
+
+The installable plugin will be at `release/com.pksimeonov.mirabox-denon.sdPlugin`. Double-click to install in the Mirabox Stream Controller app.
+
+Note: `npm run pack` uses the Elgato CLI which rejects Mirabox-specific manifest fields. Use `npm run pack:mirabox` instead, which creates the archive with a custom script.
+
+---
+
+*The original readme from the forked repo follows below.*
+
+---
 
 A Stream Deck plugin that provides network control of Denon/Marantz receivers with HEOS support.
 

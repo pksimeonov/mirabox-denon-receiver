@@ -1,64 +1,49 @@
 /**
- * Mirabox compatibility shim.
+ * Mirabox compatibility — rollup plugin.
  *
  * Mirabox stream controllers send "Knob" as the controller type instead of
- * "Encoder" which the Elgato Stream Deck SDK expects. This module patches the
- * WebSocket class so that incoming messages are normalized before the SDK
- * processes them.
+ * "Encoder" which the Elgato Stream Deck SDK expects. This plugin patches the
+ * SDK source during bundling so that "Knob" is treated as "Encoder" in the
+ * three places that matter:
  *
- * Must be imported before streamDeck.connect() is called.
+ * 1. isDial() — recognizes "Knob" as a dial
+ * 2. DialAction constructor — accepts "Knob" without throwing
+ * 3. willAppear routing — creates a DialAction for "Knob" controllers
  */
-
-import WebSocket from "ws";
-
-const CONTROLLER_ALIASES = {
-	Knob: "Encoder"
-};
-
-const OriginalWebSocket = WebSocket;
-const origAddEventListener = OriginalWebSocket.prototype.addEventListener;
-
-OriginalWebSocket.prototype.addEventListener = function (type, listener, ...rest) {
-	if (type === "message") {
-		const wrappedListener = function (event) {
-			try {
-				const data = JSON.parse(event.data);
-				if (data?.payload?.controller && CONTROLLER_ALIASES[data.payload.controller]) {
-					data.payload.controller = CONTROLLER_ALIASES[data.payload.controller];
-					event = new MessageEvent("message", { data: JSON.stringify(data) });
-				}
-			} catch {
-				// Not JSON or no controller field — pass through unchanged
+export default function miraboxCompat() {
+	return {
+		name: "mirabox-compat",
+		transform(code, id) {
+			// Only patch the Stream Deck SDK
+			if (!id.includes("@elgato") || !id.includes("streamdeck")) {
+				return null;
 			}
-			return listener.call(this, event);
-		};
-		return origAddEventListener.call(this, type, wrappedListener, ...rest);
-	}
-	return origAddEventListener.call(this, type, listener, ...rest);
-};
 
-// Also patch the onmessage setter since the SDK uses webSocket.onmessage = ...
-const onmessageDesc = Object.getOwnPropertyDescriptor(OriginalWebSocket.prototype, "onmessage")
-	|| Object.getOwnPropertyDescriptor(Object.getPrototypeOf(OriginalWebSocket.prototype), "onmessage");
+			let patched = code;
 
-if (onmessageDesc && onmessageDesc.set) {
-	const origSet = onmessageDesc.set;
-	Object.defineProperty(OriginalWebSocket.prototype, "onmessage", {
-		...onmessageDesc,
-		set(handler) {
-			const wrappedHandler = function (event) {
-				try {
-					const data = JSON.parse(event.data);
-					if (data?.payload?.controller && CONTROLLER_ALIASES[data.payload.controller]) {
-						data.payload.controller = CONTROLLER_ALIASES[data.payload.controller];
-						event = { ...event, data: JSON.stringify(data) };
-					}
-				} catch {
-					// Not JSON or no controller field — pass through unchanged
-				}
-				return handler.call(this, event);
-			};
-			origSet.call(this, wrappedHandler);
+			// 1. isDial(): also return true for "Knob"
+			patched = patched.replace(
+				'return this.controllerType === "Encoder";',
+				'return this.controllerType === "Encoder" || this.controllerType === "Knob";'
+			);
+
+			// 2. DialAction constructor: accept "Knob" as well
+			patched = patched.replace(
+				'if (source.payload.controller !== "Encoder") {',
+				'if (source.payload.controller !== "Encoder" && source.payload.controller !== "Knob") {'
+			);
+
+			// 3. willAppear routing: treat "Knob" as an Encoder (create DialAction)
+			patched = patched.replace(
+				'ev.payload.controller === "Encoder" ? new DialAction(ev) : new KeyAction(ev)',
+				'(ev.payload.controller === "Encoder" || ev.payload.controller === "Knob") ? new DialAction(ev) : new KeyAction(ev)'
+			);
+
+			if (patched !== code) {
+				return { code: patched, map: null };
+			}
+
+			return null;
 		}
-	});
+	};
 }
