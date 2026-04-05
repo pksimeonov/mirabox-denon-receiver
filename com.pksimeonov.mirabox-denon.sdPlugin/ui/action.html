@@ -16,6 +16,12 @@
 			loading="Searching for receivers..." show-refresh="true" oninput="handleUserChoseReceiver(this)">
 		</sdpi-select>
 	</sdpi-item>
+	<sdpi-item label="Manual IP">
+		<div class="manual-ip-row">
+			<sdpi-textfield setting="manualIp" placeholder="192.168.1.X" onchange="handleManualIpChanged(this)"></sdpi-textfield>
+			<button id="manualIpConnectButton" class="manual-ip-connect" onclick="handleManualIpChanged(document.querySelector('sdpi-textfield[setting=&quot;manualIp&quot;]'))">Connect</button>
+		</div>
+	</sdpi-item>
 	<sdpi-item label="Status">
 		<sdpi-textfield id="statusMsg" setting="statusMsg" disabled></sdpi-textfield>
 	</sdpi-item>

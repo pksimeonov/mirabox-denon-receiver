@@ -1,3 +1,4 @@
+import net from "net";
 import streamDeck, { SingletonAction } from "@elgato/streamdeck";
 /** @typedef {import("@elgato/streamdeck").Action} Action */
 /** @typedef {import("@elgato/streamdeck").Logger} Logger */
@@ -27,6 +28,7 @@ import { AVRTracker } from "../modules/tracker";
 /**
  * @typedef {Object} ActionSettings
  * @property {string} [uuid] - The receiver UUID to associate with this action
+ * @property {string} [manualIp] - A manually configured IP address for the receiver
  * @property {string} [name] - The name of the receiver to display in the PI
  * @property {string} [statusMsg] - The connection status message to display in the PI
  * @property {number} [zone] - The zone to control on the receiver
@@ -72,6 +74,53 @@ export class PluginAction extends SingletonAction {
 	}
 
 	/**
+	 * Normalize a manually configured IP address from settings.
+	 * @param {string | undefined} manualIp
+	 * @returns {string | undefined}
+	 */
+	normalizeManualIp(manualIp) {
+		const trimmed = manualIp?.trim();
+		return trimmed ? trimmed : undefined;
+	}
+
+	/**
+	 * Build the synthetic receiver ID used for manual IP connections.
+	 * @param {string} manualIp
+	 * @returns {ReceiverUUID}
+	 */
+	getManualReceiverId(manualIp) {
+		return `manual:${manualIp}`;
+	}
+
+	/**
+	 * Resolve the receiver selection for an action's settings.
+	 * Manual IP takes precedence over tracker discovery.
+	 * @param {ActionSettings} settings
+	 * @returns {{ receiverId?: ReceiverUUID, host?: string, isManual: boolean }}
+	 */
+	resolveReceiverSelection(settings) {
+		const manualIp = this.normalizeManualIp(settings.manualIp);
+		if (manualIp) {
+			return {
+				receiverId: this.getManualReceiverId(manualIp),
+				host: manualIp,
+				isManual: true
+			};
+		}
+
+		const receiverId = settings.uuid?.toString();
+		if (!receiverId) {
+			return { isManual: false };
+		}
+
+		return {
+			receiverId,
+			host: AVRTracker.getReceivers()[receiverId]?.currentIP,
+			isManual: false
+		};
+	}
+
+	/**
 	 * Handle the PI appearing
 	 * @param {PropertyInspectorDidAppearEvent} ev - The event object.
 	 */
@@ -85,27 +134,27 @@ export class PluginAction extends SingletonAction {
 	 * @param {WillAppearEvent} ev - The event object.
 	 */
 	async onWillAppear(ev) {
-		// Check for a selected receiver for this action.
-		const receiverId = ev.payload.settings.uuid?.toString();
+		const settings = /** @type {ActionSettings} */ (ev.payload.settings);
+		const { receiverId, isManual } = this.resolveReceiverSelection(settings);
 		if (!receiverId) {
 			// No receiver selected, clean-up any existing associations
 			delete this.actionReceiverMap[ev.action.id];
 			return;
 		}
 
-		const zone = /** @type {number} */ (ev.payload.settings.zone) || 0;
+		const zone = /** @type {number} */ (settings.zone) || 0;
 
 		// If a connection doesn't exist yet, try to create one
 		if (receiverId in this.avrConnections === false) {
 			// Should we wait for the tracker to be updated first?
-			if (AVRTracker.isScanning()) {
+			if (!isManual && AVRTracker.isScanning()) {
 				// Wait for the scan to complete and try again in case the receiver was found
 				AVRTracker.once("scanned", () => this.onWillAppear(ev));
 				return;
 			}
 
 			// Try to open the new connection to this receiver
-			if (await this.connectReceiver(receiverId) === undefined) {
+			if (await this.connectReceiver(settings) === undefined) {
 				return;
 			}
 		}
@@ -131,7 +180,8 @@ export class PluginAction extends SingletonAction {
 
 		switch (event) {
 			case "userChoseReceiver":
-				this.onUserChoseReceiver(ev);
+			case "userConfiguredReceiver":
+				this.onUserConfiguredReceiver(ev);
 				break;
 			case "refreshReceiverList":
 				this.onRefreshReceiversForPI(ev);
@@ -143,46 +193,53 @@ export class PluginAction extends SingletonAction {
 	 * Handle a user choosing a receiver from the PI.
 	 * @param {SendToPluginEvent} ev - The event object.
 	 */
-	async onUserChoseReceiver(ev) {
+	async onUserConfiguredReceiver(ev) {
 		/** @type {ActionSettings} */
-		const settings = await ev.action.getSettings();
+		const settings = {
+			...(await ev.action.getSettings()),
+			...(ev.payload.settings || {})
+		};
 		const zone = /** @type {number} */ (settings.zone) || 0;
+		const { receiverId, host, isManual } = this.resolveReceiverSelection(settings);
 
 		let statusMsg = "";
 
-		if (settings.uuid) {
+		if (isManual && host && net.isIP(host) === 0) {
+			delete this.actionReceiverMap[ev.action.id];
+			statusMsg = "Invalid IP address";
+		} else if (receiverId) {
 			// Connect to the receiver if the user chose one
-			if (settings.uuid in this.avrConnections === false) {
+			if (receiverId in this.avrConnections === false) {
 				// No connection yet, try to connect to the receiver
-				const connection = await this.connectReceiver(settings.uuid);
+				const connection = await this.connectReceiver(settings);
 				if (connection !== undefined) {
 					// Add the connection to the map if we were successful
 					this.actionReceiverMap[ev.action.id] = {
-						uuid: settings.uuid,
+						uuid: receiverId,
 						zone: zone
 					};
 					statusMsg = connection.status.statusMsg;
 
 					// Set up or refresh the listener for receiver events
 					if (this.manifestId) {
-						this.avrConnections[settings.uuid].on(this.routeReceiverEvent.bind(this), this.manifestId);
+						this.avrConnections[receiverId].on(this.routeReceiverEvent.bind(this), this.manifestId);
 					}
 				} else {
 					// If we failed to connect, clear the association
 					delete this.actionReceiverMap[ev.action.id];
-					statusMsg = "Can't find receiver";
+					statusMsg = isManual ? "Can't connect to receiver" : "Can't find receiver";
 				}
 			} else {
 				// We already have a connection, so just update the receiver map
 				this.actionReceiverMap[ev.action.id] = {
-					uuid: settings.uuid,
+					uuid: receiverId,
 					zone: zone
 				};
-				statusMsg = this.avrConnections[settings.uuid].status.statusMsg;
+				statusMsg = this.avrConnections[receiverId].status.statusMsg;
 
 				// Set up or refresh the listener for receiver events
 				if (this.manifestId) {
-					this.avrConnections[settings.uuid].on(this.routeReceiverEvent.bind(this), this.manifestId);
+					this.avrConnections[receiverId].on(this.routeReceiverEvent.bind(this), this.manifestId);
 				}
 			}
 		} else {
@@ -208,7 +265,7 @@ export class PluginAction extends SingletonAction {
 		// If the user wants a refresh, or if there are no receivers cached,
 		// actively attempt to scan for receivers now.
 		const settings = await ev.action.getSettings();
-		if (ev.payload.isRefresh === true || (!settings.uuid && Object.keys(receivers).length === 0)) {
+		if (ev.payload.isRefresh === true || (!settings.uuid && !this.normalizeManualIp(settings.manualIp) && Object.keys(receivers).length === 0)) {
 			// Perform a short scan for receivers
 			receivers = await AVRTracker.searchForReceivers(1, 2);
 		}
@@ -237,20 +294,22 @@ export class PluginAction extends SingletonAction {
 
 	/**
 	 * Create a new receiver connection (if necessary) and return it.
-	 * @param {string} receiverId - The receiver UUID.
+	 * @param {ActionSettings} settings - The action settings containing either a discovered receiver or manual IP.
 	 * @returns {Promise<AVRConnection | undefined>}
 	 */
-	async connectReceiver(receiverId) {
+	async connectReceiver(settings) {
+		const { receiverId, host } = this.resolveReceiverSelection(settings);
+		if (!receiverId || !host) {
+			return;
+		}
+
 		// Check for an existing connection before creating a new one
 		if (receiverId in this.avrConnections === false) {
-			// Get the receiver info from the tracker
 			const receiverInfo = AVRTracker.getReceivers()[receiverId];
-			if (!receiverInfo) {
-				return;
-			}
+			const targetName = receiverInfo?.name || host;
 
-			this.logger.info(`Creating new receiver connection to ${receiverInfo.name || receiverInfo.currentIP}.`);
-			const connection = new AVRConnection(this.plugin, receiverId, receiverInfo.currentIP);
+			this.logger.info(`Creating new receiver connection to ${targetName}.`);
+			const connection = new AVRConnection(this.plugin, receiverId, host);
 			this.avrConnections[receiverId] = connection;
 		}
 

@@ -191,16 +191,42 @@ export class AVRConnection {
 		let telnet = new TelnetSocket(rawSocket);
 
 		// Connection lifecycle events
-		telnet.on("connect", () => this.#onConnect());
-		telnet.on("close", (hadError) => this.#onClose(hadError));
-		telnet.on("error", (error) => this.#onError(error));
+		telnet.on("connect", () => {
+			if (this.#telnet !== telnet) return;
+			this.#onConnect();
+		});
+		telnet.on("close", (hadError) => {
+			if (this.#telnet !== telnet) return;
+			this.#onClose(hadError);
+		});
+		telnet.on("error", (error) => {
+			if (this.#telnet !== telnet) return;
+			this.#onError(error);
+		});
 
 		// Ignore standard telnet negotiation
-		telnet.on("do", (option) => telnet.writeWont(option));
-		telnet.on("will", (option) => telnet.writeDont(option));
+		telnet.on("do", (option) => {
+			if (this.#telnet !== telnet) return;
+			try {
+				telnet.writeWont(option);
+			} catch (error) {
+				this.logger.debug(`Ignoring telnet DO negotiation failure for ${this.#host}: ${error.message}`);
+			}
+		});
+		telnet.on("will", (option) => {
+			if (this.#telnet !== telnet) return;
+			try {
+				telnet.writeDont(option);
+			} catch (error) {
+				this.logger.debug(`Ignoring telnet WILL negotiation failure for ${this.#host}: ${error.message}`);
+			}
+		});
 
 		// Data events
-		telnet.on("data", (data) => this.#onData(data));
+		telnet.on("data", (data) => {
+			if (this.#telnet !== telnet) return;
+			this.#onData(data);
+		});
 
 		// Assign the telnet socket to the instance
 		this.#rawSocket = rawSocket;
@@ -235,16 +261,40 @@ export class AVRConnection {
 	}
 
 	/**
+	 * Send a telnet command if the current socket is still writable.
+	 * @param {string} command
+	 * @param {string} description
+	 * @returns {boolean}
+	 */
+	#sendCommand(command, description) {
+		const telnet = this.#telnet;
+		const rawSocket = this.#rawSocket;
+
+		if (!telnet || !rawSocket || rawSocket.destroyed || rawSocket.writable !== true) {
+			this.logger.debug(`Skipped ${description} because receiver socket is not writable: ${this.#host}`);
+			return false;
+		}
+
+		try {
+			telnet.write(command + "\r");
+			this.logger.debug(`Sent ${description}: ${command}`);
+			return true;
+		} catch (error) {
+			this.logger.warn(`Failed to send ${description} to ${this.#host}: ${error.message}`);
+			return false;
+		}
+	}
+
+	/**
 	 * Change the volume by the given delta
 	 * @param {number} delta - The amount to change the volume by
 	 * @param {number} [zone=0] - The zone to change the volume for
 	 * @returns {boolean} Whether the command was sent successfully
 	 */
 	changeVolume(delta, zone = 0) {
-		const telnet = this.#telnet;
 		const status = this.status.zones[zone];
 
-		if (!telnet || !status.power || status.volume === undefined) return false;
+		if (!status.power || status.volume === undefined) return false;
 
 		try {
 			let command = ["MV", "Z2"][zone];
@@ -252,20 +302,17 @@ export class AVRConnection {
 			let newVolume = Math.max(0, Math.min(status.maxVolume, status.volume + delta));
 			// Round to nearest 0.5
 			newVolume = Math.round(newVolume * 2) / 2;
-			// Format: whole numbers as "XX", half steps as "XXX" (e.g. 45.5 → "455")
+			// Format: whole numbers as "XX", half steps as "XXX" (e.g. 45.5 -> "455")
 			let newVolumeStr = Number.isInteger(newVolume)
 				? newVolume.toString().padStart(2, "0")
 				: (newVolume * 10).toString().padStart(3, "0");
 			command += newVolumeStr;
 
-			telnet.write(command + "\r");
-			this.logger.debug(`Sent volume command: ${command}`);
+			return this.#sendCommand(command, "volume command");
 		} catch (error) {
 			this.logger.error(`Error sending volume command: ${error.message}`);
 			return false;
 		}
-
-		return true;
 	}
 
 	/**
@@ -275,36 +322,29 @@ export class AVRConnection {
 	 * @returns {boolean} Whether the command was sent successfully
 	 */
 	changeVolumeAbsolute(value, zone = 0) {
-		const telnet = this.#telnet;
 		const status = this.status.zones[zone];
 
-		if (!telnet || !status.power) return false;
+		if (!status.power) return false;
 
 		try {
 			let command = ["MV", "Z2"][zone];
 			command += value.toString().padStart(2, "0");
 
-			telnet.write(command + "\r");
-			this.logger.debug(`Sent volume command: ${command}`);
+			return this.#sendCommand(command, "volume command");
 		} catch (error) {
 			this.logger.error(`Error sending volume command: ${error.message}`);
 			return false;
 		}
-
-		return true;
 	}
 
 	changeVolumeUp(zone = 0) {
-		const telnet = this.#telnet;
 		const status = this.status.zones[zone];
 
-		if (!telnet || !status.power) return false;
+		if (!status.power) return false;
 
 		try {
-			let command = ["MV", "Z2"][zone]+"UP";
-
-			telnet.write(command + "\r");
-			this.logger.debug(`Sent volume command: ${command}`);
+			let command = ["MV", "Z2"][zone] + "UP";
+			return this.#sendCommand(command, "volume command");
 		} catch (error) {
 			this.logger.error(`Error sending volume command: ${error.message}`);
 			return false;
@@ -312,16 +352,13 @@ export class AVRConnection {
 	}
 
 	changeVolumeDown(zone = 0) {
-		const telnet = this.#telnet;
 		const status = this.status.zones[zone];
 
-		if (!telnet || !status.power) return false;
+		if (!status.power) return false;
 
 		try {
-			let command = ["MV", "Z2"][zone]+"DOWN";
-
-			telnet.write(command + "\r");
-			this.logger.debug(`Sent volume command: ${command}`);
+			let command = ["MV", "Z2"][zone] + "DOWN";
+			return this.#sendCommand(command, "volume command");
 		} catch (error) {
 			this.logger.error(`Error sending volume command: ${error.message}`);
 			return false;
@@ -335,23 +372,22 @@ export class AVRConnection {
 	 * @returns {boolean} Whether the command was sent successfully
 	 */
 	setMute(value, zone = 0) {
-		const telnet = this.#telnet;
 		const status = this.status.zones[zone];
 
-		if (!telnet || !status.power) return false;
+		if (!status.power) return false;
 
 		if (value === undefined) value = !status.muted;
 
 		let command = ["MU", "Z2MU"][zone];
 		command += value ? "ON" : "OFF";
 
-		telnet.write(command + "\r");
-		this.logger.debug(`Sent mute command: ${command}`);
+		if (!this.#sendCommand(command, "mute command")) {
+			return false;
+		}
 
 		// Refresh the mute status to avoid synchronization issues
 		command = "?";
-		telnet.write(command + "\r");
-		this.logger.debug(`Sent mute status request: ${command}`);
+		this.#sendCommand(command, "mute status request");
 
 		return true;
 	}
@@ -363,20 +399,14 @@ export class AVRConnection {
 	 * @returns {boolean} Whether the command was sent successfully
 	 */
 	setPower(value, zone = 0) {
-		const telnet = this.#telnet;
 		const status = this.status.zones[zone];
-
-		if (!telnet) return false;
 
 		if (value === undefined) value = !status.power;
 
 		let command = ["PW", "Z2"][zone];
 		command += value ? "ON" : ["STANDBY", "OFF"][zone];
 
-		telnet.write(command + "\r");
-		this.logger.debug(`Sent power command: ${command}`);
-
-		return true;
+		return this.#sendCommand(command, "power command");
 	}
 
 	/**
@@ -386,16 +416,12 @@ export class AVRConnection {
 	 * @returns {boolean} Whether the command was sent successfully
 	 */
 	setSource(value, zone = 0) {
-		const telnet = this.#telnet;
-		if (!telnet || !value) return false;
+		if (!value) return false;
 
 		let command = ["SI", "Z2"][zone];
 		command += value;
 
-		telnet.write(command + "\r");
-		this.logger.debug(`Sent source command: ${command}`);
-
-		return true;
+		return this.#sendCommand(command, "source command");
 	}
 
 	/**
@@ -404,16 +430,12 @@ export class AVRConnection {
 	 * @returns {boolean} Whether the command was sent successfully
 	 */
 	setVideoSelectSource(value) {
-		const telnet = this.#telnet;
-		if (!telnet || !value) return false;
+		if (!value) return false;
 
 		let command = "SV";
 		command += value;
 
-		telnet.write(command + "\r");
-		this.logger.debug(`Sent video select source command: ${command}`);
-
-		return true;
+		return this.#sendCommand(command, "video select source command");
 	}
 
 	/**
@@ -422,16 +444,10 @@ export class AVRConnection {
 	 * @returns {boolean} Whether the command was sent successfully
 	 */
 	setDynamicVolume(value) {
-		const telnet = this.#telnet;
-		if (!telnet) return false;
-
 		let command = "PSDYNVOL ";
 		command += value;
 
-		telnet.write(command + "\r");
-		this.logger.debug(`Sent dynamic volume command: ${command}`);
-
-		return true;
+		return this.#sendCommand(command, "dynamic volume command");
 	}
 
 	/**
@@ -440,16 +456,10 @@ export class AVRConnection {
 	 * @returns {boolean} Whether the command was sent successfully
 	 */
 	setDynamicEQ(value) {
-		const telnet = this.#telnet;
-		if (!telnet) return false;
-
 		if (value === undefined) value = !this.status.zones[0].dynamicEQ;
 
 		const command = `PSDYNEQ ${value ? "ON" : "OFF"}`;
-		telnet.write(command + "\r");
-		this.logger.debug(`Sent dynamic EQ command: ${command}`);
-
-		return true;
+		return this.#sendCommand(command, "dynamic EQ command");
 	}
 
 	/**
@@ -460,10 +470,9 @@ export class AVRConnection {
 	 * @returns {boolean} Whether the command was sent successfully
 	 */
 	changeChannelLevel(channel, delta) {
-		const telnet = this.#telnet;
 		const status = this.status.zones[0];
 
-		if (!telnet || !status.power) return false;
+		if (!status.power) return false;
 
 		try {
 			let command = `CV${channel}`;
@@ -472,20 +481,17 @@ export class AVRConnection {
 			let newLevel = Math.max(38, Math.min(62, currentLevel + delta));
 			// Round to nearest 0.5
 			newLevel = Math.round(newLevel * 2) / 2;
-			// Format: whole numbers as "XX", half steps as "XXX" (e.g. 50.5 → "505")
+			// Format: whole numbers as "XX", half steps as "XXX" (e.g. 50.5 -> "505")
 			const newLevelStr = Number.isInteger(newLevel)
 				? newLevel.toString().padStart(2, "0")
 				: (newLevel * 10).toString().padStart(3, "0");
 			command += ` ${newLevelStr}`;
 
-			telnet.write(command + "\r");
-			this.logger.debug(`Sent channel level command: ${command}`);
+			return this.#sendCommand(command, "channel level command");
 		} catch (error) {
 			this.logger.error(`Error sending channel level command: ${error.message}`);
 			return false;
 		}
-
-		return true;
 	}
 
 	/**
@@ -495,23 +501,19 @@ export class AVRConnection {
 	 * @returns {boolean} Whether the command was sent successfully
 	 */
 	setChannelLevel(channel, value) {
-		const telnet = this.#telnet;
 		const status = this.status.zones[0];
 
-		if (!telnet || !status.power) return false;
+		if (!status.power) return false;
 
 		try {
 			const clamped = Math.max(38, Math.min(62, value));
 			const command = `CV${channel} ${clamped.toString().padStart(2, "0")}`;
 
-			telnet.write(command + "\r");
-			this.logger.debug(`Sent channel level command: ${command}`);
+			return this.#sendCommand(command, "channel level command");
 		} catch (error) {
 			this.logger.error(`Error sending channel level command: ${error.message}`);
 			return false;
 		}
-
-		return true;
 	}
 
 	/** @typedef {(...args: any[]) => void} EventListener */
@@ -565,12 +567,16 @@ export class AVRConnection {
 	 */
 	#onClose(hadError = false) {
 		(hadError ? this.logger.warn : this.logger.debug)(`Telnet connection to Denon receiver at ${this.#host} closed${hadError ? " due to error" : ""}.`);
+		this.#rawSocket = undefined;
+		this.#telnet = undefined;
 
 		this.emit("closed");
 
 		// Attempt to reconnect if we haven't given up yet
-		if (this.#telnet && this.#reconnectCount < 10) {
+		if (this.#reconnectCount < 10) {
 			this.#reconnectCount++;
+			this.status.statusMsg = `Reconnecting... (${this.#reconnectCount}/10)`;
+			this.emit("status");
 
 			setTimeout(1000).then(() => {
 				this.logger.debug(`Trying to reconnect to Denon receiver at ${this.#host}. Attempt ${this.#reconnectCount}`);
@@ -841,20 +847,17 @@ export class AVRConnection {
 	 * Usually only needed when the connection is first established
 	 */
 	#requestFullReceiverStatus() {
-		const telnet = this.#telnet;
-		if (!telnet) return;
-
 		// Main zone
-		telnet.write("PW?\r"); // Request the power status
-		telnet.write("MV?\r"); // Request the volume
-		telnet.write("MU?\r"); // Request the mute status
-		telnet.write("CV?\r"); // Request the channel levels
-		telnet.write("PSDYNVOL ?\r"); // Request the dynamic volume status
-		telnet.write("PSDYNEQ ?\r"); // Request the dynamic EQ status
+		this.#sendCommand("PW?", "power status request");
+		this.#sendCommand("MV?", "volume status request");
+		this.#sendCommand("MU?", "mute status request");
+		this.#sendCommand("CV?", "channel level status request");
+		this.#sendCommand("PSDYNVOL ?", "dynamic volume status request");
+		this.#sendCommand("PSDYNEQ ?", "dynamic EQ status request");
 
 		// Zone 2
-		telnet.write("Z2PW?\r"); // Request the power status
-		telnet.write("Z2MV?\r"); // Request the volume
-		telnet.write("Z2MU?\r"); // Request the mute status
+		this.#sendCommand("Z2PW?", "zone 2 power status request");
+		this.#sendCommand("Z2MV?", "zone 2 volume status request");
+		this.#sendCommand("Z2MU?", "zone 2 mute status request");
 	}
 }

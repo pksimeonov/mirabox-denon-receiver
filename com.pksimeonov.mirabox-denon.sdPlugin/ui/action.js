@@ -3,13 +3,70 @@
 const { streamDeckClient } = SDPIComponents;
 
 /**
+ * Refresh the visible status field from the latest persisted action settings.
+ * The PI does not always repaint disabled bound fields while it remains open.
+ * @param {number[]} [delays]
+ */
+async function refreshStatusField(delays = [0, 250, 1000]) {
+    for (const delay of delays) {
+        if (delay > 0) {
+            await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+
+        const settings = await streamDeckClient.getSettings();
+        const statusField = document.getElementById('statusMsg');
+        if (statusField) {
+            statusField.value = settings.statusMsg || "";
+        }
+    }
+}
+
+/**
  * Inform the plugin that the user has selected a receiver. (Or unset the receiver)
  * @param {HTMLSelectElement} receiverSelect - The receiver select element.
  */
 async function handleUserChoseReceiver(receiverSelect) {
     receiverSelect.disabled = true;
-    await streamDeckClient.send('sendToPlugin', { event: 'userChoseReceiver' });
+    const manualIpField = document.querySelector('sdpi-textfield[setting="manualIp"]');
+    const connectButton = document.getElementById('manualIpConnectButton');
+    if (connectButton) connectButton.disabled = true;
+    await streamDeckClient.send('sendToPlugin', {
+        event: 'userConfiguredReceiver',
+        settings: {
+            uuid: receiverSelect.value,
+            manualIp: manualIpField?.value?.trim() || ""
+        }
+    });
     receiverSelect.disabled = false;
+    if (connectButton) connectButton.disabled = false;
+    await refreshStatusField();
+}
+
+/**
+ * Inform the plugin that the user has configured a manual receiver IP.
+ * @param {HTMLInputElement} manualIpField - The manual IP field element.
+ */
+async function handleManualIpChanged(manualIpField) {
+    manualIpField.disabled = true;
+    const receiverSelect = document.querySelector('sdpi-select[setting="uuid"]');
+    const connectButton = document.getElementById('manualIpConnectButton');
+    if (connectButton) connectButton.disabled = true;
+
+    const statusField = document.getElementById('statusMsg');
+    if (statusField) {
+        statusField.value = manualIpField.value.trim() ? "Connecting..." : "";
+    }
+
+    await streamDeckClient.send('sendToPlugin', {
+        event: 'userConfiguredReceiver',
+        settings: {
+            uuid: receiverSelect?.value || "",
+            manualIp: manualIpField.value.trim()
+        }
+    });
+    manualIpField.disabled = false;
+    if (connectButton) connectButton.disabled = false;
+    await refreshStatusField();
 }
 
 /**
@@ -74,4 +131,5 @@ async function updateLayoutForAction() {
 // Perform the necessary setup once the DOM is loaded.
 document.addEventListener('DOMContentLoaded', () => {
     updateLayoutForAction();
+    refreshStatusField([0]);
 });
